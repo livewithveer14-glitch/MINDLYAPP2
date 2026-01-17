@@ -3,8 +3,8 @@ import { supabase } from '@/lib/supabase'
 export async function GET() {
   return Response.json({ 
     success: true, 
-    message: 'MINDLY API WORKING!',
-    timestamp: new Date().toISOString()
+    message: 'Send OTP endpoint',
+    usage: 'POST with {identifier: "email@example.com"}'
   })
 }
 
@@ -12,32 +12,47 @@ export async function POST(request) {
   try {
     const { identifier } = await request.json()
     
-    // Generate 6-digit code
+    if (!identifier) {
+      return Response.json({ 
+        success: false, 
+        error: 'identifier required' 
+      }, { status: 400 })
+    }
+    
     const code = Math.floor(100000 + Math.random() * 900000).toString()
     
-    // Save to database
+    // INSERT INTO otps table
     const { data, error } = await supabase
       .from('otps')
-      .insert([{
-        identifier: identifier,
-        code: code,
-        expires_at: new Date(Date.now() + 10 * 60000) // 10 minutes
-      }])
+      .insert([
+        {
+          identifier: identifier,
+          code: code,
+          expires_at: new Date(Date.now() + 600000) // 10 minutes
+        }
+      ])
       .select()
     
-    if (error) throw error
+    if (error) {
+      console.error('Database error:', error)
+      throw error
+    }
+    
+    console.log('Inserted OTP:', data)
     
     return Response.json({ 
       success: true, 
-      message: 'OTP generated',
-      code: code, // In production, remove this and send via email/SMS
-      identifier: identifier
+      message: 'OTP created and saved to database',
+      code: code, // Remove in production
+      data: data
     })
     
   } catch (error) {
+    console.error('Error:', error)
     return Response.json({ 
       success: false, 
-      error: error.message 
+      error: error.message,
+      details: 'Check if otps table exists in Supabase'
     }, { status: 500 })
   }
 }
